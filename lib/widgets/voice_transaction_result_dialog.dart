@@ -199,26 +199,25 @@ class VoiceTransactionResultDialog extends StatelessWidget {
         if (isListening)
           TextButton(
             onPressed: () {
-              if (onClose != null) onClose!();
               Navigator.of(context).pop();
+              if (onClose != null) onClose!();
             },
             child: const Text('Cancel'),
           )
         else ...[
           TextButton(
             onPressed: () {
-              if (onClose != null) onClose!();
               Navigator.of(context).pop();
+              if (onClose != null) onClose!();
             },
             child: const Text('Close'),
           ),
           if (parsed.isValid)
             ElevatedButton(
               onPressed: () {
+                Navigator.of(context).pop();
                 if (onConfirm != null) {
                   onConfirm!(parsed);
-                } else {
-                  Navigator.of(context).pop(true);
                 }
               },
               child: const Text('Confirm & Save'),

@@ -235,18 +235,24 @@ class _VoiceTransactionButtonState extends State<VoiceTransactionButton>
         parsed: parsed,
         isListening: false, // Always false since we show dialog after release
         onClose: () {
-          try {
-            Navigator.of(dialogContext).pop();
-          } catch (e) {
-            print('VoiceTransactionButton: Error closing dialog: $e');
-          }
+          // Dialog is already closed by Navigator.pop() in the dialog actions
+          // This callback is just for any cleanup if needed
         },
         onConfirm: (parsed) {
+          // Dialog is already closed by Navigator.pop() in the dialog actions
+          // Now process the transaction
           try {
-            Navigator.of(dialogContext).pop();
             widget.onTransactionParsed(parsed);
           } catch (e) {
-            print('VoiceTransactionButton: Error confirming dialog: $e');
+            print('VoiceTransactionButton: Error processing transaction: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to add transaction: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         },
       );
