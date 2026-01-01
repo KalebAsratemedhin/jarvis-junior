@@ -18,11 +18,14 @@ class UsersListDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenSize = MediaQuery.of(context).size;
+    
     return Dialog(
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: 400,
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
+          maxWidth: isLandscape ? screenSize.width * 0.6 : 400,
+          maxHeight: screenSize.height * 0.7,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

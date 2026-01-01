@@ -30,16 +30,25 @@ class _EditUserDialogState extends State<EditUserDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenSize = MediaQuery.of(context).size;
+    
     return AlertDialog(
+      contentPadding: EdgeInsets.all(isLandscape ? 16 : 24),
       title: const Text('Edit User'),
-      content: TextField(
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isLandscape ? screenSize.width * 0.5 : double.infinity,
+        ),
+        child: TextField(
         controller: _controller,
         decoration: const InputDecoration(
           labelText: 'User Name',
           hintText: 'Enter user name',
         ),
-        autofocus: true,
-        onSubmitted: (_) => _submit(),
+          autofocus: true,
+          onSubmitted: (_) => _submit(),
+        ),
       ),
       actions: [
         TextButton(

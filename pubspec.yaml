@@ -1,5 +1,5 @@
 name: jarvis_junior
-description: A minimal Flutter project that displays Hello World
+description: Jarvis 1.0 - Personal Finance Tracker
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,16 +9,28 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  speech_to_text: ^7.0.0
   path_provider: ^2.1.2
   intl: ^0.19.0
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
+  
+  # App icon and assets
+  assets:
+    - assets/images/robot_logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/robot_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/robot_logo.png"
 
 

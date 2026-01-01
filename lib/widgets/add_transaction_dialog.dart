@@ -15,19 +15,24 @@ class AddTransactionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenSize = MediaQuery.of(context).size;
+    
     return Dialog(
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: 400,
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxWidth: isLandscape ? screenSize.width * 0.6 : 400,
+          maxHeight: screenSize.height * 0.8,
         ),
-        padding: const EdgeInsets.all(24),
-        child: TransactionForm(
-          users: users,
-          onSubmit: (userName, amount, type, date, note) {
-            onSubmit(userName, amount, type, date, note);
-            Navigator.of(context).pop();
-          },
+        padding: EdgeInsets.all(isLandscape ? 16 : 24),
+        child: SingleChildScrollView(
+          child: TransactionForm(
+            users: users,
+            onSubmit: (userName, amount, type, date, note) {
+              onSubmit(userName, amount, type, date, note);
+              Navigator.of(context).pop();
+            },
+          ),
         ),
       ),
     );

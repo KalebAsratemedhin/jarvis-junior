@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 /// Widget to display summary of amounts owed per user
 class UserSummaryList extends StatelessWidget {
   final Map<String, double> userTotals;
+  final Function(String userName)? onDeleteAllTransactions;
 
   const UserSummaryList({
     super.key,
     required this.userTotals,
+    this.onDeleteAllTransactions,
   });
 
   @override
@@ -99,19 +101,64 @@ class UserSummaryList extends StatelessWidget {
                     ],
                   ),
                 ),
-                Text(
-                  'ETB ${amount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ETB ${amount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    if (onDeleteAllTransactions != null) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: Colors.red[400],
+                        onPressed: () => _showDeleteConfirmation(context, userName),
+                        tooltip: 'Delete all transactions for this user',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           );
         }),
       ],
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String userName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete All Transactions'),
+        content: Text(
+          'Are you sure you want to delete all transactions for "$userName"?\n\n'
+          'This will remove all transaction records but keep the user.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (onDeleteAllTransactions != null) {
+                onDeleteAllTransactions!(userName);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
     );
   }
 }

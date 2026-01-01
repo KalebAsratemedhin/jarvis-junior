@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
 import '../providers/finances_provider.dart';
 import '../models/transaction.dart';
 import '../widgets/add_user_dialog.dart';
@@ -6,10 +8,7 @@ import '../widgets/add_transaction_dialog.dart';
 import '../widgets/transaction_list.dart';
 import '../widgets/user_summary_list.dart';
 import '../widgets/users_list_dialog.dart';
-import '../widgets/voice_transaction_button.dart';
-import '../widgets/voice_transaction_dialog.dart';
-import '../models/parsed_transaction.dart';
-import 'package:intl/intl.dart';
+import '../widgets/split_bill_dialog.dart';
 
 /// Finances screen to manage transactions
 class FinancesScreen extends StatefulWidget {
@@ -111,73 +110,108 @@ class _FinancesScreenState extends State<FinancesScreen> {
     );
   }
 
-  Future<void> _handleVoiceTransaction(ParsedTransaction parsed) async {
-    if (!parsed.isValid) {
-      // Error already shown in result dialog, just return
+  Future<void> _exportData({required String format}) async {
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 16),
+                Text('Exporting data...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      File exportFile;
+      if (format == 'json') {
+        exportFile = await _provider.exportToJson();
+      } else {
+        exportFile = await _provider.exportToCsv();
+      }
+
+      if (mounted) {
+        // Share the file
+        await Share.shareXFiles(
+          [XFile(exportFile.path)],
+          subject: 'Finances Export',
+          text: 'Finances data export',
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Data exported successfully! File saved to: ${exportFile.path}',
+            ),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'OK',
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to export data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showSplitBillDialog() async {
+    if (_provider.state.users.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one user first'),
+        ),
+      );
       return;
     }
-    
-    // Show confirmation dialog (user already saw the analysis)
-    final confirmed = await showDialog<bool>(
+
+    await showDialog(
       context: context,
-      builder: (context) => VoiceTransactionDialog(
-        parsed: parsed,
-        existingUsers: _provider.state.users,
-        onConfirm: (userName, amount, type, date, note) async {
+      builder: (context) => SplitBillDialog(
+        users: _provider.state.users,
+        onSplit: (userName, amount, date, note) async {
           await _provider.addTransaction(
             userName: userName,
             amount: amount,
-            type: type,
+            type: TransactionType.owes, // They owe me their share
             date: date,
             note: note,
           );
-          
+
           if (_provider.state.error != null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(_provider.state.error!)),
               );
             }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Transaction added successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
           }
         },
       ),
     );
-    
-    // If confirmed from result dialog, save directly
-    if (confirmed == true) {
-      await _provider.addTransaction(
-        userName: parsed.userName!,
-        amount: parsed.amount!,
-        type: parsed.type!,
-        date: parsed.date ?? DateTime.now(),
-        note: parsed.note,
+
+    // Scroll to top to show new transactions
+    if (mounted) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
       );
-      
-      if (_provider.state.error != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_provider.state.error!)),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transaction added successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
     }
   }
 
@@ -231,6 +265,30 @@ class _FinancesScreenState extends State<FinancesScreen> {
     );
   }
 
+  Future<void> _handleDeleteAllTransactionsForUser(String userName) async {
+    await _provider.deleteAllTransactionsForUser(userName);
+    
+    if (_provider.state.error != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_provider.state.error!),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('All transactions for $userName deleted'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _handleDeleteTransaction(String transactionId) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -268,8 +326,45 @@ class _FinancesScreenState extends State<FinancesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Finances'),
+        title: const Text('Jarvis 1.0'),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'export_json') {
+                _exportData(format: 'json');
+              } else if (value == 'export_csv') {
+                _exportData(format: 'csv');
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'export_json',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_download, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export as JSON'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'export_csv',
+                child: Row(
+                  children: [
+                    Icon(Icons.table_chart, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export as CSV'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            onPressed: _showSplitBillDialog,
+            tooltip: 'Split Bill',
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _showAddTransactionDialog,
@@ -279,26 +374,6 @@ class _FinancesScreenState extends State<FinancesScreen> {
             icon: const Icon(Icons.people),
             onPressed: _showUsersListDialog,
             tooltip: 'Manage Users',
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: _showAddUserDialog,
-            tooltip: 'Add User',
-          ),
-        ],
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          VoiceTransactionButton(
-            existingUsers: _provider.state.users,
-            onTransactionParsed: _handleVoiceTransaction,
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            onPressed: _showAddTransactionDialog,
-            child: const Icon(Icons.add),
-            tooltip: 'Add Transaction',
           ),
         ],
       ),
@@ -322,112 +397,118 @@ class _FinancesScreenState extends State<FinancesScreen> {
             }
           }
 
-                 final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-                 
-                 return Column(
-                   children: [
-                     // Empty state if no users
-                     if (state.users.isEmpty)
-                       Expanded(
-                         child: Center(
-                           child: SingleChildScrollView(
-                             child: Card(
-                               elevation: 2,
-                               margin: EdgeInsets.all(isLandscape ? 16 : 24),
-                               shape: RoundedRectangleBorder(
-                                 borderRadius: BorderRadius.circular(16),
-                               ),
-                               child: Padding(
-                                 padding: EdgeInsets.all(isLandscape ? 20 : 32),
-                                 child: Column(
-                                   mainAxisSize: MainAxisSize.min,
-                                   children: [
-                                     Icon(
-                                       Icons.people_outline,
-                                       size: isLandscape ? 48 : 64,
-                                       color: Colors.grey[400],
-                                     ),
-                                     SizedBox(height: isLandscape ? 12 : 16),
-                                     Text(
-                                       'No users added yet',
-                                       style: TextStyle(
-                                         fontSize: isLandscape ? 16 : 18,
-                                         fontWeight: FontWeight.w600,
-                                         color: Colors.grey[800],
-                                       ),
-                                     ),
-                                     SizedBox(height: isLandscape ? 6 : 8),
-                                     Text(
-                                       'Add your first user to start tracking finances',
-                                       textAlign: TextAlign.center,
-                                       style: TextStyle(
-                                         fontSize: isLandscape ? 12 : 14,
-                                         color: Colors.grey[600],
-                                       ),
-                                     ),
-                                     SizedBox(height: isLandscape ? 16 : 24),
-                                     ElevatedButton.icon(
-                                       onPressed: _showAddUserDialog,
-                                       icon: const Icon(Icons.person_add),
-                                       label: const Text('Add First User'),
-                                       style: ElevatedButton.styleFrom(
-                                         padding: EdgeInsets.symmetric(
-                                           horizontal: isLandscape ? 16 : 24,
-                                           vertical: isLandscape ? 8 : 12,
-                                         ),
-                                       ),
-                                     ),
-                                   ],
-                                 ),
-                               ),
-                             ),
-                           ),
-                         ),
-                       ),
+          final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+          
+          return Column(
+            children: [
+              // Empty state if no users
+              if (state.users.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: Card(
+                        elevation: 2,
+                        margin: EdgeInsets.all(isLandscape ? 16 : 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(isLandscape ? 20 : 32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: isLandscape ? 48 : 64,
+                                color: Colors.grey[400],
+                              ),
+                              SizedBox(height: isLandscape ? 12 : 16),
+                              Text(
+                                'No users added yet',
+                                style: TextStyle(
+                                  fontSize: isLandscape ? 16 : 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              SizedBox(height: isLandscape ? 6 : 8),
+                              Text(
+                                'Add your first user to start tracking finances',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: isLandscape ? 12 : 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              SizedBox(height: isLandscape ? 16 : 24),
+                              ElevatedButton.icon(
+                                onPressed: _showAddUserDialog,
+                                icon: const Icon(Icons.person_add),
+                                label: const Text('Add First User'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isLandscape ? 16 : 24,
+                                    vertical: isLandscape ? 8 : 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
-                     // Transactions list
-                     Expanded(
-                       flex: isLandscape ? 2 : 1,
-                       child: TransactionList(
-                         transactionsByDate: transactionsByDate,
-                         onDelete: _handleDeleteTransaction,
-                       ),
-                     ),
+              // Transactions list
+              Expanded(
+                flex: isLandscape ? 2 : 1,
+                child: TransactionList(
+                  transactionsByDate: transactionsByDate,
+                  onDelete: _handleDeleteTransaction,
+                ),
+              ),
 
-                     // Summary footer - Per user breakdown (only show if there are transactions)
-                     if (state.transactions.isNotEmpty && userTotals.isNotEmpty)
-                       Flexible(
-                         flex: isLandscape ? 1 : 0,
-                         child: Container(
-                           decoration: BoxDecoration(
-                             color: Theme.of(context).colorScheme.surface,
-                             boxShadow: [
-                               BoxShadow(
-                                 color: Colors.black.withOpacity(0.05),
-                                 blurRadius: 10,
-                                 offset: const Offset(0, -2),
-                               ),
-                             ],
-                             border: Border(
-                               top: BorderSide(
-                                 color: Colors.grey[300]!,
-                                 width: 1,
-                               ),
-                             ),
-                           ),
-                           child: SafeArea(
-                             top: false,
-                             child: SingleChildScrollView(
-                               child: Padding(
-                                 padding: EdgeInsets.all(isLandscape ? 12 : 20),
-                                 child: UserSummaryList(userTotals: userTotals),
-                               ),
-                             ),
-                           ),
-                         ),
-                       ),
-                   ],
-                 );
+              // Summary footer - Per user breakdown (only show if there are transactions)
+              if (state.transactions.isNotEmpty && userTotals.isNotEmpty)
+                Flexible(
+                  flex: isLandscape ? 1 : 0,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxHeight: isLandscape ? 200 : double.infinity,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.all(isLandscape ? 12 : 20),
+                          child: UserSummaryList(
+                            userTotals: userTotals,
+                            onDeleteAllTransactions: _handleDeleteAllTransactionsForUser,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
         },
       ),
     );

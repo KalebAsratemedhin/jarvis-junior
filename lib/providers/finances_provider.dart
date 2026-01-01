@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/finances_state.dart';
@@ -73,8 +74,11 @@ class FinancesProvider extends ChangeNotifier {
     }
 
     try {
+      // Use a more unique ID to avoid collisions when adding multiple transactions quickly
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final random = (timestamp % 10000).toString().padLeft(4, '0');
       final transaction = Transaction(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: '${timestamp}_$random',
         userName: userName,
         amount: amount,
         type: type,
@@ -82,10 +86,12 @@ class FinancesProvider extends ChangeNotifier {
         note: note,
       );
 
+      // Always read from the current state to ensure we have the latest transactions
       final transactions = List<Transaction>.from(_state.transactions)
         ..add(transaction);
       
       await _service.saveTransactions(transactions);
+      await _service.addTransactionAndLog(transaction);
       
       _state = _state.copyWith(
         transactions: transactions,
@@ -100,11 +106,8 @@ class FinancesProvider extends ChangeNotifier {
 
   Future<void> deleteTransaction(String transactionId) async {
     try {
-      final transactions = _state.transactions
-          .where((t) => t.id != transactionId)
-          .toList();
-      
-      await _service.saveTransactions(transactions);
+      await _service.deleteTransactionAndMarkPaid(transactionId);
+      final transactions = await _service.loadTransactions();
       
       _state = _state.copyWith(
         transactions: transactions,
@@ -163,9 +166,46 @@ class FinancesProvider extends ChangeNotifier {
     }
   }
 
+  /// Delete all transactions for a user (but keep the user)
+  Future<void> deleteAllTransactionsForUser(String userName) async {
+    try {
+      await _service.deleteAllTransactionsForUser(userName);
+      final transactions = await _service.loadTransactions();
+      
+      _state = _state.copyWith(
+        transactions: transactions,
+        error: null,
+      );
+      notifyListeners();
+    } catch (e) {
+      _state = _state.copyWith(error: 'Failed to delete transactions: $e');
+      notifyListeners();
+    }
+  }
+
   void clearError() {
     _state = _state.copyWith(error: null);
     notifyListeners();
+  }
+
+  /// Export data to JSON file
+  Future<File> exportToJson() async {
+    return await _service.exportToJson();
+  }
+
+  /// Export data to CSV file
+  Future<File> exportToCsv() async {
+    return await _service.exportToCsv();
+  }
+
+  /// Get documents directory path
+  Future<String> getDocumentsDirectoryPath() async {
+    return await _service.getDocumentsDirectoryPath();
+  }
+
+  /// Read transactions log file
+  Future<String> readTransactionsLog() async {
+    return await _service.readTransactionsLog();
   }
 }
 
