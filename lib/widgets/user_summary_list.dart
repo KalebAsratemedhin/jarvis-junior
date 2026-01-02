@@ -33,7 +33,7 @@ class UserSummaryList extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Summary',
+              'Summary (ETB)',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -105,7 +105,7 @@ class UserSummaryList extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'ETB ${amount.toStringAsFixed(2)}',
+                      amount.toStringAsFixed(2),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -117,7 +117,7 @@ class UserSummaryList extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20),
                         color: Colors.red[400],
-                        onPressed: () => _showDeleteConfirmation(context, userName),
+                        onPressed: () => onDeleteAllTransactions!(userName),
                         tooltip: 'Delete all transactions for this user',
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -130,35 +130,6 @@ class UserSummaryList extends StatelessWidget {
           );
         }),
       ],
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context, String userName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete All Transactions'),
-        content: Text(
-          'Are you sure you want to delete all transactions for "$userName"?\n\n'
-          'This will remove all transaction records but keep the user.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (onDeleteAllTransactions != null) {
-                onDeleteAllTransactions!(userName);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete All'),
-          ),
-        ],
-      ),
     );
   }
 }

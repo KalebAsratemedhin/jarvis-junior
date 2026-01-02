@@ -124,94 +124,206 @@ class _TransactionTile extends StatelessWidget {
     this.onDelete,
   });
 
-  @override
-  Widget build(BuildContext context) {
+  void _showDetailsDialog(BuildContext context) {
     final isOwes = transaction.type == TransactionType.owes;
-    final color = isOwes ? Colors.green : Colors.red;
-    final icon = isOwes ? Icons.arrow_upward : Icons.arrow_downward;
+    final color = isOwes ? Colors.green[700]! : Colors.red[700]!;
 
-    return Card(
-      elevation: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        title: Text(
-          transaction.userName,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: transaction.note != null && transaction.note!.isNotEmpty
-            ? Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  transaction.note!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              )
-            : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
+            Icon(
+              isOwes ? Icons.arrow_upward : Icons.arrow_downward,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
               child: Text(
-                '${isOwes ? '+' : '-'}${transaction.amount.toStringAsFixed(2)} ETB',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+                'Transaction Details',
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (onDelete != null) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.red[400], size: 20),
-                onPressed: () => onDelete!(transaction.id),
-                tooltip: 'Delete transaction',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
-                iconSize: 20,
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DetailRow(label: 'User', value: transaction.userName),
+            const SizedBox(height: 12),
+            _DetailRow(
+              label: 'Amount',
+              value: '${isOwes ? '+' : '-'}${transaction.amount.toStringAsFixed(2)} ETB',
+              valueColor: color,
+            ),
+            const SizedBox(height: 12),
+            _DetailRow(
+              label: 'Type',
+              value: isOwes ? 'They Owe Me' : 'I Owed Them',
+            ),
+            const SizedBox(height: 12),
+            _DetailRow(
+              label: 'Date',
+              value: DateFormat('MMMM d, yyyy').format(transaction.date),
+            ),
+            if (transaction.note != null && transaction.note!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _DetailRow(
+                label: 'Note',
+                value: transaction.note!,
               ),
             ],
           ],
         ),
-        isThreeLine: transaction.note != null && transaction.note!.isNotEmpty,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isOwes = transaction.type == TransactionType.owes;
+    final color = isOwes ? Colors.green[700]! : Colors.red[700]!;
+    final noteText = transaction.note != null && transaction.note!.isNotEmpty
+        ? (transaction.note!.length > 12
+            ? '${transaction.note!.substring(0, 12)}...'
+            : transaction.note!)
+        : null;
+
+    return InkWell(
+      onTap: () => _showDetailsDialog(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(
+                    isOwes ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: color,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          transaction.userName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (noteText != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            noteText,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${isOwes ? '+' : '-'}${transaction.amount.toStringAsFixed(2)} ETB',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    color: Colors.red[400],
+                    onPressed: () => onDelete!(transaction.id),
+                    tooltip: 'Delete transaction',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? Colors.black87,
+              fontWeight: valueColor != null ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
